@@ -44,6 +44,20 @@
             android:inputType="textPersonName" />
 
         <TextView
+            android:id="@+id/due_date_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/due_by_title" />
+
+        <EditText
+            android:id="@+id/due_date_input"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ems="10"
+            android:hint="@string/ex_date"
+            android:textSize="14sp" />
+
+        <TextView
             android:id="@+id/text_title"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

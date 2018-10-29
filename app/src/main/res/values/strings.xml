@@ -9,4 +9,9 @@
     <string name="checkBox_Text">Completed</string>
     <string name="upload_img_btn_text">Upload Image</string>
     <string name="save_btn_text">Save</string>
+    <string name="due_date_title">Due date:</string>
+    <string name="ex_date">mm/dd/yy</string>
+    <string name="format_date">%02d/%02d/%4d</string>
+    <string name="delete_btn">Delete</string>
+    <string name="due_by_title">Due by:</string>
 </resources>
