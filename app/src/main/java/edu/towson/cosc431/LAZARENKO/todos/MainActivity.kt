@@ -4,6 +4,8 @@ import android.content.ComponentName
 import android.content.Intent
 import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
+import android.support.v4.app.DialogFragment
+import android.support.v4.app.FragmentActivity
 import android.support.v7.widget.LinearLayoutManager
 import android.util.Log
 import kotlinx.android.synthetic.main.activity_main.*
@@ -11,7 +13,7 @@ import java.security.InvalidParameterException
 import java.text.SimpleDateFormat
 import java.util.*
 
-class MainActivity : AppCompatActivity(), IController {
+class MainActivity : FragmentActivity(), IController {
 
     companion object {
         val TODO_REQUEST_CODE:Int = 50;
@@ -83,9 +85,6 @@ class MainActivity : AppCompatActivity(), IController {
         }
     }
 
-    /**
-     * Helper function to pre-populate the songs list
-     */
     private fun populateTodosList() {
         val dueDate = Calendar.getInstance(TimeZone.getTimeZone("Australia/ACT")).time
         val formatter = SimpleDateFormat("MM/dd/yyyy")

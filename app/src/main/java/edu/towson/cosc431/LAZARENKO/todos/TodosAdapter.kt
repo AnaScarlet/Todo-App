@@ -7,7 +7,10 @@ import android.view.View
 import android.view.ViewGroup
 import kotlinx.android.synthetic.main.todo_view.view.*
 import android.content.Context
+import android.content.DialogInterface
 import android.graphics.Point
+import android.support.v4.app.FragmentActivity
+import android.support.v7.app.AlertDialog
 import android.view.WindowManager
 
 
@@ -33,11 +36,40 @@ class TodosAdapter(val todosList: List<Todo>, val controller:IController): Recyc
         }
 
         viewHolder.itemView.delete_btn.setOnClickListener {
-            deleteEventListener(viewHolder)
+            val builder = AlertDialog.Builder(it.context)
+
+            builder.setMessage(R.string.delete_dialog)
+                    .setPositiveButton(R.string.delete_btn,
+                            DialogInterface.OnClickListener { dialog, id ->
+                                // Send the positive button event back to the host activity
+                                deleteEventListener(viewHolder)
+                            })
+                    .setNegativeButton(R.string.cancel,
+                            DialogInterface.OnClickListener { dialog, id ->
+
+                            })
+
+            val alertDialog = builder.create()
+            alertDialog.show()
         }
 
         viewHolder.itemView.setOnLongClickListener{
-            deleteEventListener(viewHolder)
+            val builder = AlertDialog.Builder(it.context)
+
+            builder.setMessage(R.string.delete_dialog)
+                    .setPositiveButton(R.string.delete_btn,
+                            DialogInterface.OnClickListener { dialog, id ->
+                                // Send the positive button event back to the host activity
+                                deleteEventListener(viewHolder)
+                            })
+                    .setNegativeButton(R.string.cancel,
+                            DialogInterface.OnClickListener { dialog, id ->
+                                dialog.cancel()
+                            })
+
+            val alertDialog = builder.create()
+            alertDialog.show()
+            true
         }
 
         return viewHolder
@@ -61,11 +93,10 @@ class TodosAdapter(val todosList: List<Todo>, val controller:IController): Recyc
             holder.itemView.contents_short.text = thisTodo.contents.substring(0, 50)
     }
 
-    private fun deleteEventListener(viewHolder: TodosViewHolder): Boolean {
+    private fun deleteEventListener(viewHolder: TodosViewHolder) {
         val position = viewHolder.adapterPosition
         controller.deleteTodo(position)
         notifyItemRemoved(position)
-        return true
     }
 
     private fun completeEventListener(viewHolder: TodosViewHolder) {
