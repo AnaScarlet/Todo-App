@@ -84,13 +84,16 @@ class TodosAdapter(val todosList: List<Todo>, val controller:IController): Recyc
         val thisTodo = todosList[position]
         Log.d("ADAPTER", thisTodo.toString())
 
-        holder.itemView.title.text = thisTodo.title
+        if (thisTodo.title.length <= 14)
+            holder.itemView.title.text = thisTodo.title
+        else
+            holder.itemView.title.text = thisTodo.title.substring(0, 11) + "..."
         holder.itemView.due_date.text = thisTodo.dueDate
         holder.itemView.completedState.isChecked = thisTodo.isCompleted
-        if (thisTodo.contents.length < 50)
+        if (thisTodo.contents.length <= 30)
             holder.itemView.contents_short.text = thisTodo.contents
         else
-            holder.itemView.contents_short.text = thisTodo.contents.substring(0, 50)
+            holder.itemView.contents_short.text = thisTodo.contents.substring(0, 27) + "..."
     }
 
     private fun deleteEventListener(viewHolder: TodosViewHolder) {

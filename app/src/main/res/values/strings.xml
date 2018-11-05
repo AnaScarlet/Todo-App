@@ -16,4 +16,7 @@
     <string name="due_by_title">Due by:</string>
     <string name="delete_dialog">Are you sure you want to delete this ToDo?</string>
     <string name="cancel">Cancel</string>
+    <string name="all_tab_title">All</string>
+    <string name="active_tab_title">Active</string>
+    <string name="completed_tab_title">Completed</string>
 </resources>

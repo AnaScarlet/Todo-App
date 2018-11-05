@@ -31,21 +31,22 @@
             <TextView
                 android:id="@+id/due_date_input"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                android:layout_height="0dp"
                 android:layout_weight="1"
                 android:text="@string/due_date_title" />
 
             <TextView
                 android:id="@+id/due_date"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                android:layout_height="0dp"
                 android:layout_weight="1"
                 android:text="@string/ex_date" />
 
             <TextView
                 android:id="@+id/contents_short"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                android:layout_height="0dp"
+                android:layout_weight="1"
                 android:text="@string/contents" />
 
         </LinearLayout>
