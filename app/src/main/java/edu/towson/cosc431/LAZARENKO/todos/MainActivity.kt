@@ -17,6 +17,7 @@ class MainActivity : FragmentActivity(), IController{
         val TAG = "MAIN"
     }
 
+    private lateinit var db:IDatabase
     private val todosList = mutableListOf<Todo>()
     private lateinit var todosListFragment: TodosListFragment
 
@@ -33,7 +34,11 @@ class MainActivity : FragmentActivity(), IController{
 
         button.setOnClickListener{ launchNewTodoActivity() }
 
+        db = TodosDatabase(this)
+
         populateTodosList()
+
+        todosList.addAll(db.getTodos())
 
         todosListFragment = TodosListFragment()
         todosListFragment.todosList = getTodosList()
@@ -82,21 +87,36 @@ class MainActivity : FragmentActivity(), IController{
     }
 
     override fun addTodo(todo:Todo) {
-        todosList.add(todo)
-        todosListFragment.todosList.add(todo)
+        //todosList.add(todo)
+        db.addTodo(todo)
+        todosList.clear()
+        todosList.addAll(db.getTodos())
+        //todosListFragment.todosList.add(todo)
+        todosListFragment.todosList.clear()
+        todosListFragment.todosList.addAll(db.getTodos())
         todosListFragment.notifyItemAdded(todosList.lastIndex)
     }
 
     override fun deleteTodo(indx: Int) {
-        if (indx <= todosList.lastIndex)
-            todosList.removeAt(indx)
+        if (indx <= todosList.lastIndex) {
+            //todosList.removeAt(indx)
+            db.deleteTodo(todosList[indx])
+            todosList.clear()
+            todosList.addAll(db.getTodos())
+            todosListFragment.todosList.removeAt(indx)
+        }
         else
             throw InvalidParameterException()
     }
 
     override fun toggleCompleted(indx: Int) {
-        if (indx <= todosList.lastIndex)
+        if (indx <= todosList.lastIndex) {
             todosList[indx].isCompleted = ! todosList[indx].isCompleted
+            db.updateTodo(todosList[indx])
+            todosList.clear()
+            todosList.addAll(db.getTodos())
+            todosListFragment.todosList[indx].isCompleted = ! todosList[indx].isCompleted
+        }
         else
             throw InvalidParameterException()
     }
@@ -113,14 +133,17 @@ class MainActivity : FragmentActivity(), IController{
             TODO_REQUEST_CODE -> {
                 Log.d(TAG, "Result was OK :)")
                 if (data != null) {
+                    val formatter = SimpleDateFormat("yyyy-MM-dd-hh.mm.ss")
+
                     val title:String = data.getStringExtra(NewTodoActivity.TITLE)
                     val contents:String = data.getStringExtra(NewTodoActivity.CONTENTS)
                     val isCompleted:Boolean = data.getBooleanExtra(NewTodoActivity.IS_COMPLETED, false)
                     val image:String = data.getStringExtra(NewTodoActivity.IMAGE)                   // TODO: will need to be changed
-                    val dateCreated = Calendar.getInstance().time
+                    val dateCreated = formatter.format(Calendar.getInstance().time)
                     val dueDate = data.getStringExtra(NewTodoActivity.DUE_DATE)
 
-                    val newTodo = Todo(title, contents, isCompleted, image, dateCreated, dueDate)
+                    // TODO: way to pass around isDeleted?
+                    val newTodo = Todo(title, contents, isCompleted, false, image, dateCreated, dueDate)
                     this.addTodo(newTodo)
                     Log.d(TAG, newTodo.toString())
                     //Log.d(TAG, getTodosList().toString())
@@ -135,16 +158,17 @@ class MainActivity : FragmentActivity(), IController{
     private fun populateTodosList() {
         val dueDate = Calendar.getInstance(TimeZone.getTimeZone("Australia/ACT")).time
         val formatter = SimpleDateFormat("MM/dd/yyyy")
-        var currentTime = Calendar.getInstance().time
+        var currentTime = "19-11-2018"
         (1..5).forEach {
-            todosList.add(Todo("Active Todo #"+it, "Do Todo"+it,false, "MyTodo", currentTime, formatter.format(dueDate)))
-            Log.d(TAG+":TODOS_LIST", todosList[it-1].toString())
-            currentTime = Calendar.getInstance().time
+            db.addTodo(Todo("Active Todo #"+it, "Do Todo"+it,false, false,
+                    "MyTodo", currentTime+" 11:0"+it.toString(), formatter.format(dueDate)))
+            //Log.d(TAG+":TODOS_LIST", todosList[it-1].toString())
         }
         (1..5).forEach {
-            todosList.add(Todo("Completed Todo #"+it, "Do Todo"+it,true, "MyTodo", currentTime, formatter.format(dueDate)))
-            Log.d(TAG+":TODOS_LIST", todosList[it-1].toString())
-            currentTime = Calendar.getInstance().time
+            db.addTodo(Todo("Completed Todo #"+it, "Do Todo"+it,true, false,
+                    "MyTodo", currentTime+" 11:1"+it.toString(), formatter.format(dueDate)))
+            //Log.d(TAG+":TODOS_LIST", todosList[it-1].toString())
+            currentTime = formatter.format(Calendar.getInstance().time)
         }
     }
 

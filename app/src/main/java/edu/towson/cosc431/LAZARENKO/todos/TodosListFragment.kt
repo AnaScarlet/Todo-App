@@ -20,7 +20,7 @@ import kotlinx.android.synthetic.main.fragment_todos_list.view.*
  * create an instance of this fragment.
  *
  */
-class TodosListFragment : Fragment(){
+class TodosListFragment : Fragment(), ITodosList{
 
     companion object {
         val TAG = "List_FRAGMENT"
@@ -53,12 +53,21 @@ class TodosListFragment : Fragment(){
         return myView
     }
 
-    fun notifyItemAdded(position: Int) {
+    override fun notifyItemAdded(position: Int) {
         myView.recyclerView.adapter.notifyItemInserted(position)
     }
 
-    fun notifyDataChanged() {
+    override fun notifyDataChanged() {
+        // Maybe do this instead:
+        //todosList.clear()
+        //todosList.addAll(controller.getTodosList())
         myView.recyclerView.adapter.notifyDataSetChanged()
     }
 
+}
+
+// TODO: Use this in calling code
+interface ITodosList {
+    fun notifyItemAdded(position: Int)
+    fun notifyDataChanged()
 }
