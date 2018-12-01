@@ -19,7 +19,7 @@ class MainActivity : FragmentActivity(), IController{
 
     private lateinit var db:IDatabase
     private val todosList = mutableListOf<Todo>()
-    private lateinit var todosListFragment: TodosListFragment
+    private val todosListFragment: ITodosList = TodosListFragment()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -40,12 +40,9 @@ class MainActivity : FragmentActivity(), IController{
 
         todosList.addAll(db.getTodos())
 
-        todosListFragment = TodosListFragment()
-        todosListFragment.todosList = getTodosList()
-        todosListFragment.controller = this
         supportFragmentManager
                 .beginTransaction()
-                .add(R.id.fragment_container, todosListFragment)
+                .add(R.id.fragment_container, todosListFragment as TodosListFragment)
                 .commit()
 
     }
@@ -54,56 +51,39 @@ class MainActivity : FragmentActivity(), IController{
         completed_tab.setTextColor(resources.getColor(R.color.colorAccent))
         active_tab.setTextColor(resources.getColor(R.color.buttonColor))
         all_tab.setTextColor(resources.getColor(R.color.buttonColor))
-        todosListFragment.todosList.clear()
-        val newList = getCompletedTodosList()
-        newList.forEach {
-            todosListFragment.todosList.add(it)
-        }
-        todosListFragment.notifyDataChanged()
+        todosListFragment.setListType(TodosListFragment.COMPLETED_TYPE)
+        todosListFragment.updateTodosList()
     }
 
     private fun drawActiveFragment() {
         completed_tab.setTextColor(resources.getColor(R.color.buttonColor))
         active_tab.setTextColor(resources.getColor(R.color.colorAccent))
         all_tab.setTextColor(resources.getColor(R.color.buttonColor))
-        todosListFragment.todosList.clear()
-        val newList = getActiveTodosList()
-        newList.forEach {
-            todosListFragment.todosList.add(it)
-        }
-        todosListFragment.notifyDataChanged()
+        todosListFragment.setListType(TodosListFragment.ACTIVE_TYPE)
+        todosListFragment.updateTodosList()
     }
 
     private fun drawAllFragment() {
         completed_tab.setTextColor(resources.getColor(R.color.buttonColor))
         active_tab.setTextColor(resources.getColor(R.color.buttonColor))
         all_tab.setTextColor(resources.getColor(R.color.colorAccent))
-        todosListFragment.todosList.clear()
-        val newList = getTodosList()
-        newList.forEach {
-            todosListFragment.todosList.add(it)
-        }
-        todosListFragment.notifyDataChanged()
+        todosListFragment.setListType(TodosListFragment.ALL_TYPE)
+        todosListFragment.updateTodosList()
     }
 
     override fun addTodo(todo:Todo) {
-        //todosList.add(todo)
         db.addTodo(todo)
         todosList.clear()
         todosList.addAll(db.getTodos())
-        //todosListFragment.todosList.add(todo)
-        todosListFragment.todosList.clear()
-        todosListFragment.todosList.addAll(db.getTodos())
-        todosListFragment.notifyItemAdded(todosList.lastIndex)
+        todosListFragment.updateTodosList()
     }
 
     override fun deleteTodo(indx: Int) {
         if (indx <= todosList.lastIndex) {
-            //todosList.removeAt(indx)
             db.deleteTodo(todosList[indx])
             todosList.clear()
             todosList.addAll(db.getTodos())
-            todosListFragment.todosList.removeAt(indx)
+            todosListFragment.updateTodosList()
         }
         else
             throw InvalidParameterException()
@@ -115,7 +95,7 @@ class MainActivity : FragmentActivity(), IController{
             db.updateTodo(todosList[indx])
             todosList.clear()
             todosList.addAll(db.getTodos())
-            todosListFragment.todosList[indx].isCompleted = ! todosList[indx].isCompleted
+            todosListFragment.updateTodosList()
         }
         else
             throw InvalidParameterException()
