@@ -19,4 +19,6 @@
     <string name="all_tab_title">All</string>
     <string name="active_tab_title">Active</string>
     <string name="completed_tab_title">Completed</string>
+    <string name="channel_name">TodosNotificationChannel</string>
+    <string name="channel_description">Notify the user of an image download being done</string>
 </resources>

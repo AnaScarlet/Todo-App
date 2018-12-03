@@ -1,8 +1,15 @@
 package edu.towson.cosc431.LAZARENKO.todos
 
+import android.app.IntentService
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
+import android.content.ServiceConnection
+import android.os.Build
 import android.os.Bundle
+import android.os.IBinder
 import android.support.v4.app.FragmentActivity
 import android.util.Log
 import kotlinx.android.synthetic.main.activity_main.*
@@ -15,8 +22,26 @@ class MainActivity : FragmentActivity(), IController{
     companion object {
         val TODO_REQUEST_CODE = 50
         val TAG = "MAIN"
+        val dateCreatedFormatter = SimpleDateFormat("yyyy-MM-dd-hh.mm.ss")
+        val dueDateFormatter = SimpleDateFormat("MM/dd/yyyy")
     }
 
+    val serviceConnection: ServiceConnection = object: ServiceConnection {
+        override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
+            if (service == null)
+                Log.d(TAG, "IBinder object was null")
+            val binder = service as TodosBoundService.TodosServiceBinder?
+            boundService = binder?.getService()
+
+        }
+
+        override fun onServiceDisconnected(comp: ComponentName?) {
+            boundService = null
+        }
+    }
+
+    var boundService: TodosBoundService? = null
+    var serviceIsBound = false
     private lateinit var db:IDatabase
     private val todosList = mutableListOf<Todo>()
     private val todosListFragment: ITodosList = TodosListFragment()
@@ -24,6 +49,8 @@ class MainActivity : FragmentActivity(), IController{
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
+        createNotificationChannel()
 
         all_tab.setOnClickListener{ drawAllFragment() }
         active_tab.setOnClickListener { drawActiveFragment() }
@@ -36,7 +63,8 @@ class MainActivity : FragmentActivity(), IController{
 
         db = TodosDatabase(this)
 
-        populateTodosList()
+        //populateTodosList()
+        fetchTodosInBackgroundService()
 
         todosList.addAll(db.getTodos())
 
@@ -78,6 +106,15 @@ class MainActivity : FragmentActivity(), IController{
         todosListFragment.updateTodosList()
     }
 
+    private fun addTodosList(todos: MutableList<Todo>) {
+        for (todo in todos) {
+            db.addTodo(todo)
+        }
+        todosList.clear()
+        todosList.addAll(db.getTodos())
+        todosListFragment.updateTodosList()
+    }
+
     override fun deleteTodo(indx: Int) {
         if (indx <= todosList.lastIndex) {
             db.deleteTodo(todosList[indx])
@@ -113,13 +150,11 @@ class MainActivity : FragmentActivity(), IController{
             TODO_REQUEST_CODE -> {
                 Log.d(TAG, "Result was OK :)")
                 if (data != null) {
-                    val formatter = SimpleDateFormat("yyyy-MM-dd-hh.mm.ss")
-
                     val title:String = data.getStringExtra(NewTodoActivity.TITLE)
                     val contents:String = data.getStringExtra(NewTodoActivity.CONTENTS)
                     val isCompleted:Boolean = data.getBooleanExtra(NewTodoActivity.IS_COMPLETED, false)
                     val image:String = data.getStringExtra(NewTodoActivity.IMAGE)                   // TODO: will need to be changed
-                    val dateCreated = formatter.format(Calendar.getInstance().time)
+                    val dateCreated = dateCreatedFormatter.format(Calendar.getInstance().time)
                     val dueDate = data.getStringExtra(NewTodoActivity.DUE_DATE)
 
                     // TODO: way to pass around isDeleted?
@@ -137,18 +172,54 @@ class MainActivity : FragmentActivity(), IController{
 
     private fun populateTodosList() {
         val dueDate = Calendar.getInstance(TimeZone.getTimeZone("Australia/ACT")).time
-        val formatter = SimpleDateFormat("MM/dd/yyyy")
         var currentTime = "19-11-2018"
         (1..5).forEach {
             db.addTodo(Todo("Active Todo #"+it, "Do Todo"+it,false, false,
-                    "MyTodo", currentTime+" 11:0"+it.toString(), formatter.format(dueDate)))
+                    "MyTodo", currentTime+" 11:0"+it.toString(), dueDateFormatter.format(dueDate)))
             //Log.d(TAG+":TODOS_LIST", todosList[it-1].toString())
         }
         (1..5).forEach {
             db.addTodo(Todo("Completed Todo #"+it, "Do Todo"+it,true, false,
-                    "MyTodo", currentTime+" 11:1"+it.toString(), formatter.format(dueDate)))
+                    "MyTodo", currentTime+" 11:1"+it.toString(), dueDateFormatter.format(dueDate)))
             //Log.d(TAG+":TODOS_LIST", todosList[it-1].toString())
-            currentTime = formatter.format(Calendar.getInstance().time)
+            currentTime = dateCreatedFormatter.format(Calendar.getInstance().time)
+        }
+    }
+
+    private fun fetchTodosInBackgroundService() {
+        Log.d(TAG, serviceIsBound.toString())
+        Log.d(TAG, boundService!!.isWorking().toString())
+        // will set boundService if succeeded
+        if (serviceIsBound) {
+            if (boundService == null)
+                throw NullBoundServiceException() // shouldn't happen....
+            else {
+                if (!boundService!!.isWorking()) {
+                    val newTodosList = boundService!!.fetchData().toMutableList()
+                    for (todo in newTodosList)
+                        Log.d(TAG, todo.toString())
+                    addTodosList(newTodosList)
+                }
+                else
+                    Log.w(TAG, "Bound service was still working when data was requested!")
+            }
+        }
+
+        Log.i("MAIN", "Background Bound Service started")
+    }
+
+    fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {  // Make sure Android version is compatible
+            // Create the NotificationChannel
+            val name = getString(R.string.channel_name)
+            val descriptionText = getString(R.string.channel_description)
+            val importance = NotificationManager.IMPORTANCE_DEFAULT
+            val mChannel = NotificationChannel(TodosIntentService.CHANNEL_ID, name, importance)
+            mChannel.description = descriptionText
+            // Register the channel with the system; you can't change the importance
+            // or other notification behaviors after this
+            val notificationManager = getSystemService(IntentService.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.createNotificationChannel(mChannel)
         }
     }
 
@@ -174,4 +245,18 @@ class MainActivity : FragmentActivity(), IController{
         return newTodosList
     }
 
+    override fun onResume() {
+        serviceIsBound = bindService(Intent(this, TodosBoundService::class.java), serviceConnection, Context.BIND_AUTO_CREATE)
+        startService(Intent(this, TodosBoundService::class.java))
+        super.onResume()
+    }
+
+    override fun onPause() {
+        unbindService(serviceConnection)
+        serviceIsBound = false
+        super.onPause()
+    }
+
 }
+
+class NullBoundServiceException : Exception("Bound Service was null on access")
