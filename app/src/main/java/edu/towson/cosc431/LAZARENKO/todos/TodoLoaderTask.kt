@@ -9,13 +9,13 @@ import android.support.v4.content.LocalBroadcastManager
 import android.util.Log
 import java.lang.ref.WeakReference
 
-class ImageResAndIndex(var index: Int, var resId: Int)
+class ImageRes(var index: Int, var resId: Int)
 
-class ImageLoaderAsyncTask(var act: WeakReference<TodosBoundService>) : AsyncTask<ImageResAndIndex, Int, List<Todo>?>() {
+class TodoLoaderAsyncTask(var act: WeakReference<TodosBoundService>) : AsyncTask<ImageRes, Int, Boolean>() {
 
-    override fun doInBackground(vararg resId: ImageResAndIndex?): List<Todo>? {
+    override fun doInBackground(vararg imgRes: ImageRes): Boolean {
         Log.d("AsyncTask", "Loading images from background thread...")
-        val loader = ImageLoader()
+        val loader = TodoLoader()
         return loader.loadTodo(act.get())
     }
 
@@ -23,30 +23,36 @@ class ImageLoaderAsyncTask(var act: WeakReference<TodosBoundService>) : AsyncTas
         super.onProgressUpdate(*values)
     }
 
-    override fun onPostExecute(todosList: List<Todo>?) {
-        super.onPostExecute(todosList)
-        if (todosList != null) {
-            act.get()?.putData(todosList)
+    override fun onPostExecute(succeeded: Boolean) {
+        super.onPostExecute(succeeded)
+//        if (todosList != null)
+//            act.get()?.putData(todosList)
+        if (succeeded)
             notifyUser("Your Todos are loaded.")
-        }
         else
-            notifyUser("Empty Todo loaded :( ")
+            notifyUser("An Error occurred while loading your Todos :( ")
     }
 
     fun notifyUser(msg: String) {
         val context = act.get()
 
-        val mainActivityIntent = Intent(context, MainActivity::class.java)  // For sending out data...?
+        val broadcastReceiverIntent = Intent()
+        broadcastReceiverIntent.setAction(Intent.ACTION_RUN)
+        broadcastReceiverIntent.addCategory(Intent.CATEGORY_DEFAULT)
+
+        val mainActivityIntent = Intent(context, MainActivity::class.java)
+        mainActivityIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        mainActivityIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK)
         val pendingIntent = PendingIntent.getActivity(context, 0, mainActivityIntent, 0)
 
         if (context != null) {
             val result = LocalBroadcastManager
                     .getInstance(context)
-                    .sendBroadcast(mainActivityIntent) // Returns true if someone received the broadcast
-
+                    .sendBroadcast(broadcastReceiverIntent) // Returns true if someone received the broadcast
+            Log.d("TodoLoaderTask", result.toString())
             if (!result) {
                 // Show notification
-                val notification = NotificationCompat.Builder(context, TodosIntentService.CHANNEL_ID) // ChannelId - notifications can be grouped into channels
+                val notification = NotificationCompat.Builder(context, TodosBoundService.CHANNEL_ID) // ChannelId - notifications can be grouped into channels
                         .setContentTitle(msg)
                         .setContentText("Click here to check them out!")
                         .setSmallIcon(android.R.drawable.ic_input_get)
@@ -56,7 +62,7 @@ class ImageLoaderAsyncTask(var act: WeakReference<TodosBoundService>) : AsyncTas
                         .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                         .build() // Returns the actual notification
 
-                NotificationManagerCompat.from(context).notify(TodosIntentService.NOTIF_ID, notification)
+                NotificationManagerCompat.from(context).notify(TodosBoundService.NOTIF_ID, notification)
             }
         }
     }

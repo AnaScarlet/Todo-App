@@ -1,22 +1,26 @@
 package edu.towson.cosc431.LAZARENKO.todos
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.util.Log
+import android.widget.Toast
 import com.androidnetworking.AndroidNetworking
 import com.androidnetworking.error.ANError
+import com.androidnetworking.interfaces.BitmapRequestListener
 import com.androidnetworking.interfaces.ParsedRequestListener
 import java.util.*
+import kotlin.concurrent.thread
 
-class ImageLoader {
+class TodoLoader {
 
-    // used to toggle between error and success
-    // DEMO PURPOSES ONLY!!!!
-    private val todosList: MutableList<Todo> = mutableListOf()
     private var hadError = false
+    private lateinit var db: TodosDatabase
+    private var imgBitmap: Bitmap? = null
 
     companion object {
         val URL = "https://my-json-server.typicode.com/rvalis-towson/todos_api/todos"
-        val TAG = "ImageLoader"
+        val TAG = "TodoLoader"
+
     }
 
     data class IntermediateTodo(val id:Int, val title:String, val contents:String,
@@ -26,22 +30,21 @@ class ImageLoader {
     inner class TodosJsonArrayListener : ParsedRequestListener<List<IntermediateTodo>> {
 
         override fun onResponse(response: List<IntermediateTodo>) {
+            db.clearTodosTable()
             for (interTodo in response) {
-                todosList.add(convertIntermediateToTodo(interTodo))
+                val todo = convertIntermediateToTodo(interTodo)
+                db.addTodo(todo)
+                getImageBitmap(interTodo.image_url, todo)
             }
         }
 
-        private fun convertIntermediateToTodo(intermediateTodo: ImageLoader.IntermediateTodo) : Todo {
+        private fun convertIntermediateToTodo(intermediateTodo: TodoLoader.IntermediateTodo) : Todo {
             val dateNTime = Calendar.getInstance().time
             val dueDateInstance = MainActivity.dueDateFormatter.format(dateNTime)
             val dateCreatedInstance = MainActivity.dateCreatedFormatter.format(dateNTime)
-            /*
-            Log.d(TAG, "Title: " + intermediateTodo.title + " Contents: " + intermediateTodo.contents
-                + " isCompleted: " + intermediateTodo.completed + " image URL: " + intermediateTodo.image_url
-                + " date created: " + dateCreatedInstance + " due date: " + dueDateInstance)
-            */
+
             return Todo(intermediateTodo.title, intermediateTodo.contents, intermediateTodo.completed,
-                    false, intermediateTodo.image_url, dateCreatedInstance, dueDateInstance)
+                    false, null, dateCreatedInstance, dueDateInstance)
         }
 
         override fun onError(anError: ANError?) {
@@ -52,31 +55,66 @@ class ImageLoader {
 
     }
 
-    fun loadTodo(context: Context?): List<Todo>? {
+    fun fetchAvatar(url: String) {
+        AndroidNetworking.get(url)
+                .setBitmapMaxHeight(128)
+                .setBitmapMaxWidth(128)
+                .setBitmapConfig(Bitmap.Config.ARGB_8888)
+                .build()
+                .getAsBitmap(object: BitmapRequestListener {
+                    override fun onResponse(response: Bitmap?) {
+                        Log.d(TAG, "Got a response image Bitmap")
+                        imgBitmap = response
+                    }
+
+                    override fun onError(anError: ANError?) {
+                        Log.d(TAG, "Failed to fetch avatar")
+                    }
+
+                })
+    }
+
+    fun getImageBitmap(url:String, todo:Todo) {
+        object : Thread(){
+            override fun run() {
+                fetchAvatar(url)
+                while (imgBitmap == null) {
+                    Thread.sleep(50)
+                    Log.d(TAG, "Image Bitmap was NULL")
+                }
+                todo.image = imgBitmap
+                db.updateTodo(todo)
+            }
+        }.start()
+        //return imgBitmap!!.copy(imgBitmap!!.config, false)
+    }
+
+    /*
+     *   First thing to be called.
+     *   Returns true if succeeded, false otherwise.
+     */
+    fun loadTodo(context: Context?) : Boolean {
         if(context == null){
             Log.d(TAG, "Context was null in loadTodo()")
             hadError = true
-            return null
+            return !hadError
         }
+
+        this.db = TodosDatabase(context)
 
         AndroidNetworking.initialize(context)
         AndroidNetworking.enableLogging()
 
         fetchTodosFromNetwork()
-        return if (hadError) {
-            //Log.d(TAG, "Some error was set off while getting todos list from network")
-            null
-        } else {
-            // Returns a lsit of Todos
-            todosList.toList()
-        }
+
+        return !hadError
     }
 
     /**
      * Do the network call here
      */
     private fun fetchTodosFromNetwork() {
-        Log.d("ImageLoader", "Working on loading the image")
+        Log.d("TodoLoader", "Working on loading the image")
 
         AndroidNetworking.get(URL)
                 .build()

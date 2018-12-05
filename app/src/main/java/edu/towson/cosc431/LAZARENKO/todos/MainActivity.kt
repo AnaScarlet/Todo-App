@@ -3,15 +3,14 @@ package edu.towson.cosc431.LAZARENKO.todos
 import android.app.IntentService
 import android.app.NotificationChannel
 import android.app.NotificationManager
-import android.content.ComponentName
-import android.content.Context
-import android.content.Intent
-import android.content.ServiceConnection
+import android.content.*
 import android.os.Build
 import android.os.Bundle
-import android.os.IBinder
 import android.support.v4.app.FragmentActivity
+import android.support.v4.app.NotificationManagerCompat
+import android.support.v4.content.LocalBroadcastManager
 import android.util.Log
+import android.widget.Toast
 import kotlinx.android.synthetic.main.activity_main.*
 import java.security.InvalidParameterException
 import java.text.SimpleDateFormat
@@ -22,26 +21,27 @@ class MainActivity : FragmentActivity(), IController{
     companion object {
         val TODO_REQUEST_CODE = 50
         val TAG = "MAIN"
-        val dateCreatedFormatter = SimpleDateFormat("yyyy-MM-dd-hh.mm.ss")
+        val dateCreatedFormatter = SimpleDateFormat("yyyy-MM-dd-hh.mm.ss.SSS")
         val dueDateFormatter = SimpleDateFormat("MM/dd/yyyy")
     }
 
-    val serviceConnection: ServiceConnection = object: ServiceConnection {
-        override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
-            if (service == null)
-                Log.d(TAG, "IBinder object was null")
-            val binder = service as TodosBoundService.TodosServiceBinder?
-            boundService = binder?.getService()
+    inner class MainBroadcastReceiver : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            Toast.makeText(context, "Received your Todos. Updating them now...", Toast.LENGTH_LONG).show()
+            updateTodosList()
+            // Cancel the notification
+            if (context != null) {
+                NotificationManagerCompat
+                        .from(context)
+                        .cancel(TodosBoundService.CHANNEL_ID, TodosBoundService.NOTIF_ID)
+                stopService(Intent(this@MainActivity, TodosBoundService::class.java))
+            }
 
         }
 
-        override fun onServiceDisconnected(comp: ComponentName?) {
-            boundService = null
-        }
     }
 
-    var boundService: TodosBoundService? = null
-    var serviceIsBound = false
+    val broadcastReceiver = MainBroadcastReceiver()
     private lateinit var db:IDatabase
     private val todosList = mutableListOf<Todo>()
     private val todosListFragment: ITodosList = TodosListFragment()
@@ -62,9 +62,9 @@ class MainActivity : FragmentActivity(), IController{
         button.setOnClickListener{ launchNewTodoActivity() }
 
         db = TodosDatabase(this)
-
+        db.clearTodosTable()
+        Toast.makeText(this, "Fetching your Todos", Toast.LENGTH_LONG).show()
         //populateTodosList()
-        fetchTodosInBackgroundService()
 
         todosList.addAll(db.getTodos())
 
@@ -106,10 +106,7 @@ class MainActivity : FragmentActivity(), IController{
         todosListFragment.updateTodosList()
     }
 
-    private fun addTodosList(todos: MutableList<Todo>) {
-        for (todo in todos) {
-            db.addTodo(todo)
-        }
+    private fun updateTodosList() {
         todosList.clear()
         todosList.addAll(db.getTodos())
         todosListFragment.updateTodosList()
@@ -153,12 +150,13 @@ class MainActivity : FragmentActivity(), IController{
                     val title:String = data.getStringExtra(NewTodoActivity.TITLE)
                     val contents:String = data.getStringExtra(NewTodoActivity.CONTENTS)
                     val isCompleted:Boolean = data.getBooleanExtra(NewTodoActivity.IS_COMPLETED, false)
-                    val image:String = data.getStringExtra(NewTodoActivity.IMAGE)                   // TODO: will need to be changed
+                    val imageURL:String = data.getStringExtra(NewTodoActivity.IMAGE)                   // TODO: will need to be changed
                     val dateCreated = dateCreatedFormatter.format(Calendar.getInstance().time)
                     val dueDate = data.getStringExtra(NewTodoActivity.DUE_DATE)
 
                     // TODO: way to pass around isDeleted?
-                    val newTodo = Todo(title, contents, isCompleted, false, image, dateCreated, dueDate)
+                    val newTodo = Todo(title, contents, isCompleted, false, null, dateCreated, dueDate)
+                    TodoLoader().getImageBitmap(imageURL, newTodo)
                     this.addTodo(newTodo)
                     Log.d(TAG, newTodo.toString())
                     //Log.d(TAG, getTodosList().toString())
@@ -175,37 +173,15 @@ class MainActivity : FragmentActivity(), IController{
         var currentTime = "19-11-2018"
         (1..5).forEach {
             db.addTodo(Todo("Active Todo #"+it, "Do Todo"+it,false, false,
-                    "MyTodo", currentTime+" 11:0"+it.toString(), dueDateFormatter.format(dueDate)))
+                    null, currentTime+" 11:0"+it.toString(), dueDateFormatter.format(dueDate)))
             //Log.d(TAG+":TODOS_LIST", todosList[it-1].toString())
         }
         (1..5).forEach {
             db.addTodo(Todo("Completed Todo #"+it, "Do Todo"+it,true, false,
-                    "MyTodo", currentTime+" 11:1"+it.toString(), dueDateFormatter.format(dueDate)))
+                    null, currentTime+" 11:1"+it.toString(), dueDateFormatter.format(dueDate)))
             //Log.d(TAG+":TODOS_LIST", todosList[it-1].toString())
             currentTime = dateCreatedFormatter.format(Calendar.getInstance().time)
         }
-    }
-
-    private fun fetchTodosInBackgroundService() {
-        Log.d(TAG, serviceIsBound.toString())
-        Log.d(TAG, boundService!!.isWorking().toString())
-        // will set boundService if succeeded
-        if (serviceIsBound) {
-            if (boundService == null)
-                throw NullBoundServiceException() // shouldn't happen....
-            else {
-                if (!boundService!!.isWorking()) {
-                    val newTodosList = boundService!!.fetchData().toMutableList()
-                    for (todo in newTodosList)
-                        Log.d(TAG, todo.toString())
-                    addTodosList(newTodosList)
-                }
-                else
-                    Log.w(TAG, "Bound service was still working when data was requested!")
-            }
-        }
-
-        Log.i("MAIN", "Background Bound Service started")
     }
 
     fun createNotificationChannel() {
@@ -214,7 +190,7 @@ class MainActivity : FragmentActivity(), IController{
             val name = getString(R.string.channel_name)
             val descriptionText = getString(R.string.channel_description)
             val importance = NotificationManager.IMPORTANCE_DEFAULT
-            val mChannel = NotificationChannel(TodosIntentService.CHANNEL_ID, name, importance)
+            val mChannel = NotificationChannel(TodosBoundService.CHANNEL_ID, name, importance)
             mChannel.description = descriptionText
             // Register the channel with the system; you can't change the importance
             // or other notification behaviors after this
@@ -246,17 +222,21 @@ class MainActivity : FragmentActivity(), IController{
     }
 
     override fun onResume() {
-        serviceIsBound = bindService(Intent(this, TodosBoundService::class.java), serviceConnection, Context.BIND_AUTO_CREATE)
+        val filter = IntentFilter(Intent.ACTION_RUN)
+        filter.addCategory(Intent.CATEGORY_DEFAULT)
+        LocalBroadcastManager
+                .getInstance(this)
+                .registerReceiver(broadcastReceiver, filter)
         startService(Intent(this, TodosBoundService::class.java))
         super.onResume()
     }
 
     override fun onPause() {
-        unbindService(serviceConnection)
-        serviceIsBound = false
+        LocalBroadcastManager
+                .getInstance(this)
+                .unregisterReceiver(broadcastReceiver)
+        stopService(Intent(this, TodosBoundService::class.java))
         super.onPause()
     }
 
 }
-
-class NullBoundServiceException : Exception("Bound Service was null on access")

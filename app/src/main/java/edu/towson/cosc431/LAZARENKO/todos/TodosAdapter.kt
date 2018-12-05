@@ -9,11 +9,10 @@ import kotlinx.android.synthetic.main.todo_view.view.*
 import android.content.Context
 import android.content.DialogInterface
 import android.graphics.Point
+import android.graphics.drawable.Drawable
 import android.support.v4.app.FragmentActivity
 import android.support.v7.app.AlertDialog
 import android.view.WindowManager
-
-
 
 class TodosAdapter(val todosList: List<Todo>, val controller:IController): RecyclerView.Adapter<TodosViewHolder>() {
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): TodosViewHolder {
@@ -82,18 +81,29 @@ class TodosAdapter(val todosList: List<Todo>, val controller:IController): Recyc
 
     override fun onBindViewHolder(holder: TodosViewHolder, position: Int) {
         val thisTodo = todosList[position]
-        Log.d("ADAPTER", thisTodo.toString())
+        Log.d(TAG, thisTodo.toString())
 
         if (thisTodo.title.length <= 14)
             holder.itemView.title.text = thisTodo.title
         else
             holder.itemView.title.text = thisTodo.title.substring(0, 11) + "..."
+
         holder.itemView.due_date.text = thisTodo.dueDate
+
         holder.itemView.completedState.isChecked = thisTodo.isCompleted
+
         if (thisTodo.contents.length <= 30)
             holder.itemView.contents_short.text = thisTodo.contents
         else
             holder.itemView.contents_short.text = thisTodo.contents.substring(0, 27) + "..."
+
+        try {
+            holder.itemView.todo_avatar.setImageBitmap(thisTodo.image)
+        } catch (e: Error) {
+            holder.itemView.todo_avatar.setImageResource(R.drawable.default_person)
+            Log.w(TAG, "Error with image bitmap")
+            print(e.stackTrace)
+        }
     }
 
     private fun deleteEventListener(viewHolder: TodosViewHolder) {
@@ -115,6 +125,10 @@ class TodosAdapter(val todosList: List<Todo>, val controller:IController): Recyc
         display.getSize(size)
 
         return size.y
+    }
+
+    companion object {
+        val TAG = "ADAPTER"
     }
 
 }

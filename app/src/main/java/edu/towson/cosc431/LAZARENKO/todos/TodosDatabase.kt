@@ -4,7 +4,9 @@ import android.content.ContentValues
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import android.content.Context
+import android.graphics.Bitmap
 import android.util.Log
+import com.google.gson.Gson
 import java.text.SimpleDateFormat
 
 object todosContract {
@@ -37,10 +39,10 @@ private const val SQL_DELETE_ENTRIES = "DROP TABLE IF EXISTS ${todosContract.tod
 class TodosDatabase(context: Context) : IDatabase {
 
     private val db: SQLiteDatabase = TodosDatabaseHelper(context).writableDatabase
-
+    private val gson = Gson()
 
     override fun addTodo(todo: Todo) {
-        Log.d("DATABASE", todo.toString())
+        Log.d("DATABASE: Add", todo.toString())
         val cvalues = toContentValues(todo)
 
         val err = db.insert(todosContract.todosTable.TABLE_NAME, null, cvalues)
@@ -60,7 +62,12 @@ class TodosDatabase(context: Context) : IDatabase {
         )
     }
 
+    override fun clearTodosTable() {
+        db.delete(todosContract.todosTable.TABLE_NAME, null, null)
+    }
+
     override fun updateTodo(todo: Todo) {
+        Log.d("DATABASE: Update", todo.toString())
         val cvalues = toContentValues(todo)
 
         db.update(
@@ -87,7 +94,9 @@ class TodosDatabase(context: Context) : IDatabase {
             val contents = cursor.getString(cursor.getColumnIndex(todosContract.todosTable.CONTENTS_COLUMN))
             val isCompleted = cursor.getInt(cursor.getColumnIndex(todosContract.todosTable.IS_COMPLETED_COLUMN))
             val isDeleted = cursor.getInt(cursor.getColumnIndex(todosContract.todosTable.IS_DELETED_COLUMN))
-            val image = cursor.getString(cursor.getColumnIndex(todosContract.todosTable.IMAGE_COLUMN))
+            val jsonImage = cursor.getString(cursor.getColumnIndex(todosContract.todosTable.IMAGE_COLUMN))
+            val image = gson.fromJson(jsonImage, Bitmap::class.java)
+
             val dateCreated = cursor.getString(cursor.getColumnIndex(todosContract.todosTable.DATE_CREATED_COLUMN))
             val dueDate = cursor.getString(cursor.getColumnIndex(todosContract.todosTable.DUE_DATE_COLUMN))
 
@@ -116,7 +125,9 @@ class TodosDatabase(context: Context) : IDatabase {
             val contents = cursor.getString(cursor.getColumnIndex(todosContract.todosTable.CONTENTS_COLUMN))
             val isCompleted = cursor.getInt(cursor.getColumnIndex(todosContract.todosTable.IS_COMPLETED_COLUMN))
             val isDeleted = cursor.getInt(cursor.getColumnIndex(todosContract.todosTable.IS_DELETED_COLUMN))
-            val image = cursor.getString(cursor.getColumnIndex(todosContract.todosTable.IMAGE_COLUMN))
+            val jsonImage = cursor.getString(cursor.getColumnIndex(todosContract.todosTable.IMAGE_COLUMN))
+            val image = gson.fromJson(jsonImage, Bitmap::class.java)
+
             val dateCreated = cursor.getString(cursor.getColumnIndex(todosContract.todosTable.DATE_CREATED_COLUMN))
             val dueDate = cursor.getString(cursor.getColumnIndex(todosContract.todosTable.DUE_DATE_COLUMN))
 
@@ -134,12 +145,13 @@ class TodosDatabase(context: Context) : IDatabase {
     private fun toContentValues(todo: Todo): ContentValues {
         val cvalues = ContentValues()
 
+        val jsonImage = gson.toJson(todo.image, Bitmap::class.java)
 
         cvalues.put(todosContract.todosTable.TITLE_COLUMN, todo.title)
         cvalues.put(todosContract.todosTable.CONTENTS_COLUMN, todo.contents)
         cvalues.put(todosContract.todosTable.IS_COMPLETED_COLUMN, todo.isCompleted)
         cvalues.put(todosContract.todosTable.IS_DELETED_COLUMN, todo.isDeleted)
-        cvalues.put(todosContract.todosTable.IMAGE_COLUMN, todo.image)
+        cvalues.put(todosContract.todosTable.IMAGE_COLUMN, jsonImage)
         cvalues.put(todosContract.todosTable.DATE_CREATED_COLUMN, todo.dateCreated)
         cvalues.put(todosContract.todosTable.DUE_DATE_COLUMN, todo.dueDate)
 
